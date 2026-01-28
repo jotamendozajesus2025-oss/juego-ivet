@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Juego del Amor 💖</title>
+
+<style>
+body{
+  margin:0;
+  font-family:'Poppins',sans-serif;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:linear-gradient(135deg,#ff5f9e,#845ec2);
+  color:white;
+}
+
+.screen{
+  display:none;
+  width:90%;
+  max-width:420px;
+  background:rgba(0,0,0,0.45);
+  padding:25px;
+  border-radius:20px;
+  text-align:center;
+  animation:fade 1s;
+}
+
+.screen.active{ display:block; }
+
+button{
+  width:100%;
+  padding:15px;
+  margin-top:15px;
+  border:none;
+  border-radius:15px;
+  background:#ff2f92;
+  color:white;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.level,.mission{
+  font-size:14px;
+  opacity:0.9;
+  margin-bottom:8px;
+}
+
+.reward{
+  font-size:17px;
+  color:#ffd6e8;
+}
+
+.penalty{
+  color:#ffb3c6;
+  margin-top:10px;
+}
+
+.music-btn{
+  position:fixed;
+  top:15px;
+  right:15px;
+  background:#ff2f92;
+  border:none;
+  border-radius:50%;
+  width:45px;
+  height:45px;
+  color:white;
+  font-size:18px;
+}
+
+@keyframes fade{
+  from{opacity:0;transform:translateY(20px);}
+  to{opacity:1;transform:translateY(0);}
+}
+</style>
+</head>
+
+<body>
+
+<!-- 🎶 AUDIO (ANDROID FRIENDLY) -->
+<audio id="music" preload="auto" loop playsinline>
+  <source src="musica.mp3" type="audio/mpeg">
+</audio>
+
+<button class="music-btn" onclick="toggleMusic()">🎶</button>
+
+<!-- BIENVENIDA -->
+<div class="screen active" id="welcome">
+  <h1>💖 Bienvenida Ivet 💖</h1>
+  <p>
+    Este juego no es casualidad…<br>
+    Cada nivel guarda una intención 💘
+  </p>
+  <!-- 👇 AQUÍ SE FUERZA EL AUDIO -->
+  <button onclick="startGame(); iniciarMusica();">Comenzar</button>
+</div>
+
+<!-- JUEGO -->
+<div class="screen" id="game">
+  <div class="level" id="levelText"></div>
+  <div class="mission" id="missionText"></div>
+
+  <h2 id="question"></h2>
+
+  <button onclick="answer(0)" id="btn0"></button>
+  <button onclick="answer(1)" id="btn1"></button>
+  <button onclick="answer(2)" id="btn2"></button>
+
+  <p id="score"></p>
+  <p class="penalty" id="penalty"></p>
+</div>
+
+<!-- PREMIO -->
+<div class="screen" id="reward">
+  <h2>🎁 Premio desbloqueado</h2>
+  <p class="reward" id="rewardText"></p>
+  <button onclick="nextStep()">Continuar</button>
+</div>
+
+<!-- FINAL -->
+<div class="screen" id="final">
+  <h2>💍 Última pista 💍</h2>
+  <p class="reward">
+    Si llegaste hasta aquí…<br><br>
+    No fue suerte.<br>
+    Fue conexión.<br><br>
+    Ivet…<br><br>
+    💖 ¿Quieres ser mi novia? 💖
+  </p>
+</div>
+
+<script>
+// ======================
+// 🎵 AUDIO ANDROID FIX
+// ======================
+function iniciarMusica(){
+  const m = document.getElementById("music");
+  m.volume = 0.5;
+  m.play().catch(()=>{
+    console.log("Audio bloqueado, esperando interacción");
+  });
+}
+
+function toggleMusic(){
+  const m = document.getElementById("music");
+  m.paused ? m.play() : m.pause();
+}
+
+// ======================
+// 🎮 NIVELES
+// ======================
+const niveles = {
+  1:{
+    mission:"No falles ninguna 💕",
+    reward:"🧩 Pista 1: Alguien pensó en ti mientras creaba esto 💭",
+    questions:[
+      {q:"El amor verdadero se basa en:",a:["Celos","Respeto","Control"],c:1},
+      {q:"Amar es:",a:["Poseer","Cuidar","Mandar"],c:1}
+    ]
+  },
+  2:{
+    mission:"Confía en tu corazón 💘",
+    reward:"🧩 Pista 2: No es solo cariño… es admiración 💞",
+    questions:[
+      {q:"Una relación sana necesita:",a:["Silencio","Comunicación","Dependencia"],c:1},
+      {q:"El respeto en el amor es:",a:["Opcional","Esencial","Exagerado"],c:1}
+    ]
+  },
+  3:{
+    mission:"Aquí ya no es juego 😈",
+    reward:"🧩 Pista 3: Alguien no quiere verte solo como amiga 💗",
+    questions:[
+      {q:"¿Perdonar es una prueba de amor?",a:["Siempre","A veces","Nunca"],c:1},
+      {q:"Amar también es:",a:["Soltar","Aguantar","Ignorar"],c:0}
+    ]
+  }
+};
+
+// 🔐 NIVEL SECRETO
+const nivelSecreto = {
+  mission:"Solo para quien no falló 💖",
+  reward:"🗝️ Pista secreta: No quiero jugar contigo… quiero caminar contigo 💕",
+  questions:[
+    {q:"Esto no fue casualidad, fue:",a:["Suerte","Destino","Un error"],c:1}
+  ]
+};
+
+let nivelActual = 1;
+let preguntas = [];
+let current = 0;
+let points = 0;
+let fallosNivel = 0;
+let secretoDesbloqueado = false;
+
+// ======================
+function startGame(){
+  cambiar("welcome","game");
+  cargarNivel();
+}
+
+function cargarNivel(){
+  fallosNivel = 0;
+  preguntas = niveles[nivelActual].questions;
+  current = 0;
+  missionText.innerText = `🎯 Misión: ${niveles[nivelActual].mission}`;
+  loadQuestion();
+}
+
+function loadQuestion(){
+  let q = preguntas[current];
+  levelText.innerText = `💖 Nivel ${nivelActual}`;
+  question.innerText = q.q;
+  btn0.innerText = q.a[0];
+  btn1.innerText = q.a[1];
+  btn2.innerText = q.a[2];
+  score.innerText = `Puntos: ${points}`;
+  penalty.innerText = "";
+}
+
+function answer(i){
+  if(i === preguntas[current].c){
+    points++;
+  }else{
+    fallosNivel++;
+    aplicarCastigo();
+    return;
+  }
+
+  current++;
+  if(current < preguntas.length){
+    loadQuestion();
+  }else{
+    if(fallosNivel === 0 && !secretoDesbloqueado){
+      secretoDesbloqueado = true;
+      niveles["secreto"] = nivelSecreto;
+    }
+    mostrarPremio();
+  }
+}
+
+function aplicarCastigo(){
+  const castigos=[
+    ()=>{points=Math.max(0,points-1); penalty.innerText="💔 Castigo: pierdes 1 punto";},
+    ()=>{penalty.innerText="🔁 Castigo: inténtalo otra vez";},
+    ()=>{penalty.innerText="⏱️ Castigo: espera 2 segundos";
+      btn0.disabled=btn1.disabled=btn2.disabled=true;
+      setTimeout(()=>btn0.disabled=btn1.disabled=btn2.disabled=false,2000);}
+  ];
+  castigos[Math.floor(Math.random()*castigos.length)]();
+}
+
+function mostrarPremio(){
+  cambiar("game","reward");
+  rewardText.innerText =
+    niveles[nivelActual]?.reward || nivelSecreto.reward;
+}
+
+function nextStep(){
+  if(nivelActual === 3 && secretoDesbloqueado){
+    nivelActual="secreto";
+    preguntas = nivelSecreto.questions;
+    cambiar("reward","game");
+    missionText.innerText = `🔐 Misión secreta: ${nivelSecreto.mission}`;
+    current = 0;
+    loadQuestion();
+    return;
+  }
+
+  if(nivelActual === "secreto"){
+    cambiar("reward","final");
+    return;
+  }
+
+  nivelActual++;
+  if(niveles[nivelActual]){
+    cambiar("reward","game");
+    cargarNivel();
+  }else{
+    cambiar("reward","final");
+  }
+}
+
+function cambiar(a,b){
+  document.getElementById(a).classList.remove("active");
+  document.getElementById(b).classList.add("active");
+}
+</script>
+
+</body>
+</html>
